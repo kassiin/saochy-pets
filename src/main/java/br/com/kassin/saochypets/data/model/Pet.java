@@ -152,7 +152,6 @@ public class Pet {
 
     public double getFinalDamage() {
         if (rarity == null) return baseDamage;
-
         double levelBonus = LevelingManager.getDamageIncreasePerLevel() + (level - 1);
         double totalBaseDamage = baseDamage + levelBonus;
 

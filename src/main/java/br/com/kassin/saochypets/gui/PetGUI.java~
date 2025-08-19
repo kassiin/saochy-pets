@@ -57,7 +57,7 @@ public class PetGUI {
 
     private static void setInfoSection(Inventory inv, Pet pet) {
         ItemStack stats = createItem(Material.BOOK, "§a§lStatus do Pet", Arrays.asList(
-                "§7Dano: §c" + pet.getFinalDamage(),
+                "§7Dano: §c" + pet.getBaseDamage(),
                 "§7Velocidade: §f" + pet.getSpeed(),
                 "§7Comportamento: " + getBehaviorColor(pet.getBehavior()) + pet.getBehavior(),
                 "",

@@ -20,7 +20,7 @@ public class LevelingManager {
     private static double baseXp = 100;
     private static double xpMultiplier = 1.5;
     @Getter
-    private static double damageIncreasePerLevel = 1.2;
+    private static double damageIncreasePerLevel;
     private static int defaultXp = 10;
 
     public static void load(FileConfiguration config, Logger logger) {

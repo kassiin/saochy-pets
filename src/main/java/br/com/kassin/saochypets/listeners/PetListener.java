@@ -25,6 +25,8 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
+import java.util.UUID;
+
 public class PetListener implements Listener {
 
     private final PetService petService;
@@ -125,8 +127,9 @@ public class PetListener implements Listener {
             if (pet.getBehavior() == PetBehavior.DEFENSIVE) {
                 Entity damager = event.getDamager();
                 if (damager instanceof LivingEntity livingDamager) {
+                    UUID targetUUID = pet.getTarget().getUniqueId();
+                    if (livingDamager.getUniqueId().equals(targetUUID)) return;
                     pet.setTarget(livingDamager);
-                    owner.sendMessage("§cSeu pet entrou em combate para defender você!");
                 }
             }
         });

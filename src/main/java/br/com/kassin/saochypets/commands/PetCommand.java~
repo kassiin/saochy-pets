@@ -211,7 +211,6 @@ public class PetCommand implements CommandExecutor, TabExecutor {
 
             dataProvider.getPet(target.getUniqueId(), petId).ifPresentOrElse(p -> {
                 p.addXp(xpToAdd);
-                p.setOwner(target);
                 petService.updatePet(p);
                 sender.sendMessage("§aForam adicionados §e" + xpToAdd + "§a XP ao pet '" + p.getDisplayName() + "' de " + target.getName() + ".");
             }, () -> sender.sendMessage("§cO jogador não possui esse pet."));

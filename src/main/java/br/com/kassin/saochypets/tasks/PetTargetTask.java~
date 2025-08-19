@@ -135,5 +135,4 @@ public class PetTargetTask extends BukkitRunnable {
         if (angle > 180) angle -= 360;
         return angle;
     }
-
 }

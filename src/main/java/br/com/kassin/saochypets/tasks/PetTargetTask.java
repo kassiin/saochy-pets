@@ -1,0 +1,139 @@
+package br.com.kassin.saochypets.tasks;
+
+import br.com.kassin.saochypets.SaochyPetsPlugin;
+import br.com.kassin.saochypets.data.cache.PlayerActivePetCache;
+import br.com.kassin.saochypets.data.model.Pet;
+import com.ticxo.modelengine.api.model.ModeledEntity;
+import net.minecraft.server.v1_16_R3.EntityInsentient;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.entity.*;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
+
+import java.util.*;
+
+public class PetTargetTask extends BukkitRunnable {
+
+    private final Map<UUID, UUID> petTargets = new HashMap<>();
+    private final Map<UUID, Long> lastLookUpdate = new HashMap<>();
+    private final Set<UUID> attackCooldown = new HashSet<>();
+    private static final double LOOK_THRESHOLD_DEGREES = 25.0;
+    private static final long LOOK_COOLDOWN_MS = 900;
+
+    @Override
+    public void run() {
+        for (Map.Entry<UUID, Pet> entry : PlayerActivePetCache.getActivePetsMap().entrySet()) {
+            UUID ownerId = entry.getKey();
+            Pet pet = entry.getValue();
+            Player owner = Bukkit.getPlayer(ownerId);
+            if (owner == null || !owner.isOnline()) continue;
+
+            LivingEntity entity = pet.getEntity();
+            if (!(entity instanceof Mob baseEntity)) continue;
+
+            ModeledEntity modeledEntity = pet.getModeledEntity();
+            EntityInsentient nmsEntity = pet.getNmsEntity();
+            LivingEntity currentTarget = pet.getTarget();
+
+            double minOwner = pet.getMinDistanceOwner();
+            double maxOwner = pet.getMaxDistanceOwner();
+            double stopTarget = pet.getStopDistanceTarget();
+            double distanceToOwner = baseEntity.getLocation().distance(owner.getLocation());
+
+            if (distanceToOwner > 20 && !owner.isFlying() &&
+                    owner.getLocation().clone().subtract(0, 1, 0).getBlock().getType() != Material.AIR) {
+                baseEntity.teleportAsync(owner.getLocation());
+                continue;
+            }
+
+            switch (pet.getBehavior()) {
+                case AGGRESSIVE:
+                    if (currentTarget == null) {
+                        LivingEntity nearest = findNewTarget(owner,pet.getEntity(), pet.getFindTargetRange());
+                        if (nearest != null) {
+                            pet.setTarget(nearest);
+                            owner.sendMessage("§cSeu pet entrou em combate!");
+                        }
+                    }
+                    break;
+                case PASSIVE:
+                    pet.setTarget(null);
+                    break;
+                case DEFENSIVE:
+                    break;
+            }
+
+            if (currentTarget != null && currentTarget.isValid() && !currentTarget.isDead()) {
+                double distance = baseEntity.getLocation().distance(currentTarget.getLocation());
+                if (distance > stopTarget) {
+                    Vector dir = currentTarget.getLocation().toVector().subtract(baseEntity.getLocation().toVector()).normalize();
+                    Location dest = baseEntity.getLocation().add(dir.multiply(distance - stopTarget));
+                    nmsEntity.getNavigation().a(dest.getX(), dest.getY(), dest.getZ(), pet.getSpeed());
+                } else {
+                    startAttack(pet, currentTarget);
+                }
+                smoothLookAt(modeledEntity, baseEntity.getLocation(), currentTarget.getLocation(), baseEntity.getUniqueId());
+            } else {
+                if (distanceToOwner > maxOwner) {
+                    nmsEntity.getNavigation().a(owner.getLocation().getX(), owner.getLocation().getY(), owner.getLocation().getZ(), pet.getSpeed());
+                } else if (distanceToOwner < minOwner) {
+                    nmsEntity.getNavigation().o();
+                }
+                smoothLookAt(modeledEntity, baseEntity.getLocation(), owner.getLocation(), baseEntity.getUniqueId());
+            }
+        }
+    }
+
+    private void startAttack(Pet pet, LivingEntity target) {
+        UUID petId = pet.getEntity().getUniqueId();
+        if (attackCooldown.contains(petId)) return;
+
+        attackCooldown.add(petId);
+        smoothLookAt(pet.getModeledEntity(), pet.getEntity().getLocation(), target.getLocation(), petId);
+        pet.getActiveModel().getAnimationHandler().playAnimation(pet.getAttackAnimation(), 0, 0, 0.8, false);
+
+        Bukkit.getScheduler().runTaskLater(SaochyPetsPlugin.getInstance(), () -> {
+            if (target.isValid() && !target.isDead()) {
+                target.damage(pet.getFinalDamage(), pet.getEntity());
+            }
+            pet.setTarget(null);
+            Bukkit.getScheduler().runTaskLater(SaochyPetsPlugin.getInstance(),
+                    () -> attackCooldown.remove(petId),
+                    pet.getDelayWhenAttacking() + 5);
+        }, pet.getDelayWhenAttacking());
+    }
+
+    private void smoothLookAt(ModeledEntity modeledEntity, Location current, Location target, UUID petId) {
+        long now = System.currentTimeMillis();
+        if (now - lastLookUpdate.getOrDefault(petId, 0L) < LOOK_COOLDOWN_MS) return;
+
+        Vector dir = target.toVector().subtract(current.toVector()).normalize();
+        float yaw = (float) Math.toDegrees(Math.atan2(dir.getZ(), dir.getX())) - 90;
+        float diff = Math.abs(normalizeAngle(current.getYaw() - yaw));
+        if (diff > LOOK_THRESHOLD_DEGREES) {
+            modeledEntity.getLookController().lookAt(target.getX(), target.getY(), target.getZ());
+            lastLookUpdate.put(petId, now);
+        }
+    }
+
+    private LivingEntity findNewTarget(Player owner, Entity petEntity, double range) {
+        return petEntity.getNearbyEntities(range, range, range)
+                .stream()
+                .filter(e -> e instanceof LivingEntity && !e.getUniqueId().equals(owner.getUniqueId()) && !e.isDead())
+                .map(e -> (LivingEntity) e)
+                .min(Comparator.comparingDouble(e -> e.getLocation().distanceSquared(petEntity.getLocation())))
+                .map(e -> {
+                    petTargets.put(petEntity.getUniqueId(), e.getUniqueId());
+                    return e;
+                }).orElse(null);
+    }
+
+    private float normalizeAngle(float angle) {
+        angle %= 360;
+        if (angle < -180) angle += 360;
+        if (angle > 180) angle -= 360;
+        return angle;
+    }
+}

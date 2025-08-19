@@ -1,0 +1,72 @@
+pets:
+  tiger:
+    name: "Flame Tiger"
+    modelID: "w6_chibi_archer"
+    baseEntity: "PIG"
+    damage: 5
+    fly: true
+    mountable: true
+    attack_animation: "attack"
+    fly_animation: "fly"
+    delay_when-attacking: 55
+    speed: 0.35
+    level: 1
+    xp: 0
+    attack_range: 2.0
+    behavior: "AGGRESSIVE"
+    access: "PRIVATE"
+    rarity: "RARE"
+    xpPerKill: 100
+    behavior_settings:
+      find_target_range: 12.0
+      min_distance_owner: 2.0
+      max_distance_owner: 7.0
+      stop_distance_target: 3.0
+
+  knight:
+    name: "Chibi Knight"
+    modelID: "w6_chibi_wizard"
+    baseEntity: "PIG"
+    damage: 50
+    fly: true
+    mountable: true
+    attack_animation: "attack"
+    fly_animation: "fly"
+    delay_when-attacking: 20
+    speed: 0.35
+    level: 1
+    xp: 0
+    attack_range: 2.0
+    behavior: "AGGRESSIVE"
+    access: "PRIVATE"
+    rarity: "EPIC"
+    xpPerKill: 10
+    behavior_settings:
+      find_target_range: 12.0
+      min_distance_owner: 2.0
+      max_distance_owner: 7.0
+      stop_distance_target: 3.0
+
+  phoenix:
+    name: "Chibi Phoenix"
+    modelID: "phoenix"
+    baseEntity: "PIG"
+    damage: 1
+    fly: true
+    mountable: true
+    attack_animation: "attack"
+    fly_animation: "attack"
+    delay_when_attacking: 20
+    speed: 0.35
+    level: 1
+    xp: 0
+    attack_range: 2.0
+    behavior: "PASSIVE"
+    access: "PRIVATE"
+    rarity: "LEGENDARY"
+    xpPerKill: 10
+    behavior_settings:
+      find_target_range: 12.0
+      min_distance_owner: 2.0
+      max_distance_owner: 7.0
+      stop_distance_target: 3.0

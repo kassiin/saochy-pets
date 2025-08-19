@@ -1,0 +1,7 @@
+name: saochy-pets
+version: '1.0.0-SNAPSHOT'
+main: br.com.kassin.saochypets.SaochyPetsPlugin
+api-version: '1.16'
+depend: [ModelEngine]
+commands:
+  pet:

@@ -1,0 +1,64 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'org.jetbrains.kotlin.jvm'
+}
+
+group = 'br.com.kassin'
+version = '1.0.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    maven {
+        name = "papermc-repo"
+        url = "https://repo.papermc.io/repository/maven-public/"
+    }
+    maven {
+        name = 'lumine maven p'
+        url 'https://mvn.lumine.io/repository/maven-public/'
+    }
+    maven {
+        url = 'https://repo.extendedclip.com/releases/'
+    }
+    flatDir(dirs: 'libs')
+}
+
+dependencies {
+    compileOnly "com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT"
+    compileOnly "org.projectlombok:lombok:1.18.38"
+    compileOnly name: "Model-Engine-R3.1.8"
+    compileOnly name: "spigot-1.16.5"
+    implementation "net.kyori:adventure-api:4.9.3"
+
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.2.2'
+    implementation 'com.zaxxer:HikariCP:5.1.0'
+
+    annotationProcessor "org.projectlombok:lombok:1.18.38"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+
+}
+
+tasks.shadowJar {
+    destinationDirectory.set(file("K:/AreaDeTrabalho/Server1.16.5/plugins"))
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(16)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+processResources {
+    filesMatching("plugin.yml") {
+        expand(version: project.version)
+    }
+}
+
+shadowJar {
+    archiveClassifier.set("")
+}
+

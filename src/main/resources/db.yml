@@ -1,0 +1,6 @@
+MySQL:
+  Host: 127.0.0.1
+  Database: pets
+  Username: root
+  Password: GTASAN89099
+  Port: 3306

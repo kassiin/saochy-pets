@@ -1,0 +1,6 @@
+name: saochy-pets
+version: '${version}'
+main: br.com.kassin.saochypets.SaochyPetsPlugin
+api-version: '1.16'
+commands:
+  pet:

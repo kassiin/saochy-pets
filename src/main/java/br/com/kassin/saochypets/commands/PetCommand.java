@@ -1,0 +1,323 @@
+package br.com.kassin.saochypets.commands;
+
+import br.com.kassin.saochypets.gui.PetGUI;
+import br.com.kassin.saochypets.SaochyPetsPlugin;
+import br.com.kassin.saochypets.data.PetService;
+import br.com.kassin.saochypets.data.PlayerPetDataProvider;
+import br.com.kassin.saochypets.data.cache.PetCache;
+import br.com.kassin.saochypets.data.cache.PlayerActivePetCache;
+import br.com.kassin.saochypets.data.model.Pet;
+import lombok.RequiredArgsConstructor;
+import org.bukkit.Bukkit;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabExecutor;
+import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
+import java.util.stream.Stream;
+
+@RequiredArgsConstructor
+public class PetCommand implements CommandExecutor, TabExecutor {
+
+    private final PetService petService;
+    private final PlayerPetDataProvider dataProvider;
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length == 0) return true;
+
+        if (args[0].equalsIgnoreCase("reload")) {
+            handleReload(sender);
+            return true;
+        }
+
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§cEste comando só pode ser executado por jogadores.");
+            return true;
+        }
+
+        switch (args[0].toLowerCase()) {
+            case "spawn" -> handleActivate(player, args);
+            case "remove" -> handleDeactivate(player, args);
+            case "unregister" -> handleUnregister(player, args);
+            case "list" -> handleList(player, args);
+            case "register" -> handleRegister(player, args);
+            case "dismount" -> handleDismount(player, args);
+            case "menu" -> handleMenu(player, args);
+            case "xp" -> handleXpCommand(player, args);
+            default -> player.sendMessage("§cComando desconhecido.");
+        }
+
+        return true;
+    }
+
+    private Player getTargetPlayer(Player sender, String[] args, int index) {
+        if (args.length <= index) return sender;
+
+        Player target = Bukkit.getPlayer(args[index]);
+        if (target == null || !target.isOnline()) {
+            sender.sendMessage("§cJogador não encontrado ou offline.");
+            return null;
+        }
+
+        if (!target.equals(sender) && !sender.hasPermission("saochypets.others")) {
+            // sender.sendMessage("§cVocê não tem permissão para mexer nos pets de outros jogadores.");
+            return null;
+        }
+
+        return target;
+    }
+
+    private void handleActivate(Player sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("§cUse: /pet spawn <petId> [player]");
+            return;
+        }
+
+        String petId = args[1];
+        Player target = getTargetPlayer(sender, args, 2);
+        if (target == null) return;
+
+        petService.activatePet(target, petId);
+    }
+
+    private void handleDeactivate(Player sender, String[] args) {
+        Player target = getTargetPlayer(sender, args, 1);
+        if (target == null) return;
+
+        petService.deactivatePet(target);
+    }
+
+    private void handleRegister(Player sender, String[] args) {
+        if (!sender.hasPermission("saochypets.register") || !sender.hasPermission("saochypets.all")) return;
+
+        if (args.length < 2) {
+            sender.sendMessage("§cUse: /pet register <nomeDoPet> [player]");
+            return;
+        }
+
+        String petName = args[1];
+        Player target = getTargetPlayer((Player) sender, args, 2);
+        if (target == null) return;
+
+        Pet pet = PetCache.getPet(petName);
+        if (pet == null) {
+            sender.sendMessage("§cPet '" + petName + "' não encontrado no cache.");
+            return;
+        }
+
+        if (dataProvider.getPet(target.getUniqueId(), petName).isPresent()) {
+            sender.sendMessage("§cO jogador já possui um pet com o nome '" + petName + "'.");
+            return;
+        }
+
+        dataProvider.addPet(target.getUniqueId(), pet);
+        sender.sendMessage("§aPet '" + pet.getDisplayName() + "' registrado com sucesso para " + target.getName() + "!");
+    }
+
+    private void handleUnregister(Player sender, String[] args) {
+        if (!sender.hasPermission("saochypets.unregister") || !sender.hasPermission("saochypets.all")) return;
+
+        if (args.length < 2) {
+            sender.sendMessage("§cUse: /pet unregister <nomeDoPet> [player]");
+            return;
+        }
+
+        String petName = args[1];
+        Player target = getTargetPlayer((Player) sender, args, 2);
+        if (target == null) return;
+
+        Pet pet = PetCache.getPet(petName);
+        if (pet == null) {
+            sender.sendMessage("§cPet não encontrado: " + petName);
+            return;
+        }
+
+        dataProvider.removeOwnedPet(target.getUniqueId(), pet.getPetId());
+        sender.sendMessage("§aPet '" + pet.getDisplayName() + "' desregistrado com sucesso de " + target.getName() + "!");
+    }
+
+    private void handleList(Player sender, String[] args) {
+        Player target = getTargetPlayer(sender, args, 1);
+        if (target == null) return;
+
+        Map<String, Pet> pets = dataProvider.getAllPets(target.getUniqueId());
+        if (pets.isEmpty()) {
+            sender.sendMessage("§cO jogador não possui nenhum pet.");
+            return;
+        }
+
+        sender.sendMessage("§e--- Pets de " + target.getName() + " ---");
+        pets.values().forEach(pet -> sender.sendMessage("§a- " + pet.getDisplayName() + " §7(ID: " + pet.getPetId() + ")"));
+    }
+
+    private void handleXpCommand(Player sender, String[] args) {
+        if (!sender.hasPermission("saochypets.xp") || !sender.hasPermission("saochypets.all")) return;
+
+        if (args.length < 3) {
+            sender.sendMessage("§cUse: /pet xp <get|add> <player> <petId> [valor]");
+            return;
+        }
+
+        String action = args[1].toLowerCase();
+        if (!action.equals("get") && !action.equals("add")) {
+            sender.sendMessage("§cUse: /pet xp <get|add> <player> <petId> [valor]");
+            return;
+        }
+
+        Player target = Bukkit.getPlayerExact(args[2]);
+        if (target == null) {
+            sender.sendMessage("§cJogador não encontrado: " + args[2]);
+            return;
+        }
+
+        if (args.length < 4) {
+            sender.sendMessage("§cVocê deve especificar o ID do pet.");
+            return;
+        }
+
+        String petId = args[3];
+        Pet pet = PetCache.getPet(petId);
+        if (pet == null) {
+            sender.sendMessage("§cPet não encontrado: " + petId);
+            return;
+        }
+
+        if (action.equals("get")) {
+            int xp = dataProvider.getPet(target.getUniqueId(), petId)
+                    .map(Pet::getXp)
+                    .orElse(0);
+            sender.sendMessage("§aO pet '" + pet.getDisplayName() + "' de " + target.getName() + " possui §e" + xp + "§a XP.");
+        } else {
+            if (args.length < 5) {
+                sender.sendMessage("§cUse: /pet xp add <player> <petId> <valor>");
+                return;
+            }
+
+            int xpToAdd;
+            try {
+                xpToAdd = Integer.parseInt(args[4]);
+            } catch (NumberFormatException e) {
+                sender.sendMessage("§cValor de XP inválido.");
+                return;
+            }
+
+            dataProvider.getPet(target.getUniqueId(), petId).ifPresentOrElse(p -> {
+                p.setXp(p.getXp() + xpToAdd);
+                p.setOwner(target);
+                petService.updatePet(p);
+                sender.sendMessage("§aForam adicionados §e" + xpToAdd + "§a XP ao pet '" + p.getDisplayName() + "' de " + target.getName() + ".");
+            }, () -> sender.sendMessage("§cO jogador não possui esse pet."));
+        }
+    }
+
+    private void handleDismount(Player sender, String[] args) {
+        Player target = getTargetPlayer(sender, args, 1);
+        if (target == null) return;
+
+        Pet pet = petService.getActivePet(target);
+        if (pet == null) {
+            sender.sendMessage("§cO jogador não possui um pet ativo.");
+            return;
+        }
+        pet.removeDriver(target);
+    }
+
+    private void handleMenu(Player sender, String[] args) {
+        Player target = getTargetPlayer(sender, args, 1);
+        if (target == null) return;
+
+        Pet pet = petService.getActivePet(target);
+        if (pet == null) {
+            sender.sendMessage("§cO jogador não possui um pet ativo.");
+            return;
+        }
+
+        PetGUI.open(sender, pet);
+    }
+
+    private void handleReload(CommandSender sender) {
+        if (!sender.hasPermission("saochypets.reload") && !sender.hasPermission("saochypets.all")) return;
+
+        Bukkit.getOnlinePlayers().forEach(player -> PlayerActivePetCache.getPet(player.getUniqueId()).ifPresent(Pet::destroy));
+        SaochyPetsPlugin.getInstance().reloadConfigs();
+        sender.sendMessage("§aAs configurações dos pets foram recarregadas com sucesso!");
+    }
+
+    @Override
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
+                                                @NotNull String alias, @NotNull String[] args) {
+        if (args.length == 1) {
+            return getSubcommands(sender).stream()
+                    .filter(s -> s.toLowerCase().startsWith(args[0].toLowerCase()))
+                    .toList();
+        }
+
+        if (!(sender instanceof Player player)) return Collections.emptyList();
+
+        switch (args[0].toLowerCase()) {
+            case "spawn", "unregister" -> {
+                if (args.length == 2) {
+                    Map<String, Pet> ownedPets = dataProvider.getAllPets(player.getUniqueId());
+                    return ownedPets.keySet().stream()
+                            .filter(p -> p.toLowerCase().startsWith(args[1].toLowerCase()))
+                            .toList();
+                }
+            }
+
+            case "register" -> {
+                if (args.length == 2) {
+                    Map<String, Pet> ownedPets = dataProvider.getAllPets(player.getUniqueId());
+                    return PetCache.getPets().stream()
+                            .map(Pet::getPetId)
+                            .filter(id -> !ownedPets.containsKey(id))
+                            .filter(id -> id.toLowerCase().startsWith(args[1].toLowerCase()))
+                            .toList();
+                }
+            }
+
+            case "xp" -> {
+                if (args.length == 2) {
+                    return Stream.of("get", "add")
+                            .filter(a -> a.startsWith(args[1].toLowerCase()))
+                            .toList();
+                }
+                if (args.length == 3) {
+                    return Bukkit.getOnlinePlayers().stream()
+                            .map(Player::getName)
+                            .filter(name -> name.toLowerCase().startsWith(args[2].toLowerCase()))
+                            .toList();
+                }
+                if (args.length == 4) {
+                    Player target = Bukkit.getPlayerExact(args[2]);
+                    if (target == null) return Collections.emptyList();
+                    Map<String, Pet> ownedPets = dataProvider.getAllPets(target.getUniqueId());
+                    return ownedPets.keySet().stream()
+                            .filter(p -> p.toLowerCase().startsWith(args[3].toLowerCase()))
+                            .toList();
+                }
+                if (args.length == 5) {
+                    return Collections.emptyList();
+                }
+            }
+        }
+
+        return Collections.emptyList();
+    }
+
+    private static List<String> getSubcommands(CommandSender sender) {
+        List<String> subcommands = new ArrayList<>(List.of("spawn", "remove", "list", "register", "unregister", "menu", "dismount", "reload", "xp"));
+        subcommands.removeIf(cmd -> switch (cmd) {
+            case "reload" -> !sender.hasPermission("saochypets.reload");
+            case "register" -> !sender.hasPermission("saochypets.register");
+            case "unregister" -> !sender.hasPermission("saochypets.unregister");
+            case "xp" -> !sender.hasPermission("saochypets.xp");
+            default -> false;
+        });
+        return subcommands;
+    }
+}

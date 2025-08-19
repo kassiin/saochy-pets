@@ -1,0 +1,38 @@
+# Configurações de progressão de nível dos pets
+level_system:
+  # XP base necessário para o primeiro nível.
+  base_xp: 100
+  # A cada nível, o XP necessário será multiplicado por este valor.
+  # Fórmula: xpParaProximoNivel = base_xp * (level * xp_multiplier)
+  xp_multiplier: 1.5
+  # Dano adicional que o pet ganha a cada nível.
+  # Este valor será somado ao dano base do pet.
+  damage_increase_per_level: 1.2
+
+# Configurações das raridades
+rarities:
+  COMMON:
+    name: "§7Comum"
+    # Dano final será multiplicado por este valor.
+    damage_multiplier: 1.0
+  RARE:
+    name: "§aRaro"
+    damage_multiplier: 1.2
+  EPIC:
+    name: "§5Épico"
+    damage_multiplier: 1
+  LEGENDARY:
+    name: "§6Lendário"
+    damage_multiplier: 2.0
+  MYTHIC:
+    name: "§6Lendário"
+    damage_multiplier: 2.0
+
+# Define a quantidade de XP que o pet ganha ao matar uma entidade.
+xp_values:
+  default: 10
+  ZOMBIE: 15
+  SKELETON: 15
+  SPIDER: 12
+  ENDERMAN: 25
+  ENDER_DRAGON: 1000
